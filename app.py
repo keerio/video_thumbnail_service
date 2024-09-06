@@ -40,11 +40,54 @@ def create_thumbnails(video_path, output_folder):
 
     video.release()
 
-def process_video(video_path, thumbnail_folder):
+def get_video_length(video_path):
     try:
-        create_thumbnails(video_path, thumbnail_folder)
+        video = cv2.VideoCapture(video_path)
+        fps = video.get(cv2.CAP_PROP_FPS)
+        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        video.release()
+        
+        if fps <= 0 or total_frames <= 0:
+            return None
+        
+        duration_seconds = total_frames / fps
+        return duration_seconds
     except Exception as e:
-        print(f"Error processing video {video_path}: {str(e)}")
+        print(f"Error reading video {video_path}: {str(e)}")
+        return None
+
+def should_remove_video(video_path):
+    # Check if file size is less than 2 MB
+    if os.path.getsize(video_path) < 2 * 1024 * 1024:
+        return True
+    
+    # Check if video length is less than 5 minutes or not readable
+    duration = get_video_length(video_path)
+    if duration is None or duration < 300:  # 300 seconds = 5 minutes
+        return True
+    
+    return False
+
+def remove_video_and_thumbnails(video_path):
+    thumbnail_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'thumbs', os.path.splitext(os.path.basename(video_path))[0])
+    
+    if os.path.exists(video_path):
+        os.remove(video_path)
+    
+    if os.path.exists(thumbnail_folder):
+        for thumbnail in os.listdir(thumbnail_folder):
+            os.remove(os.path.join(thumbnail_folder, thumbnail))
+        os.rmdir(thumbnail_folder)
+
+def process_video(video_path, thumbnail_folder):
+    if should_remove_video(video_path):
+        print(f"Removing video: {video_path}")
+        remove_video_and_thumbnails(video_path)
+    else:
+        try:
+            create_thumbnails(video_path, thumbnail_folder)
+        except Exception as e:
+            print(f"Error processing video {video_path}: {str(e)}")
 
 def process_existing_videos(folder):
     thumbs_folder = os.path.join(folder, 'thumbs')
@@ -56,7 +99,7 @@ def process_existing_videos(folder):
             thumbnail_folder = os.path.join(thumbs_folder, os.path.splitext(video)[0])
             if not os.path.exists(thumbnail_folder):
                 os.makedirs(thumbnail_folder, exist_ok=True)
-                threading.Thread(target=process_video, args=(video_path, thumbnail_folder)).start()
+            threading.Thread(target=process_video, args=(video_path, thumbnail_folder)).start()
 
 class VideoHandler(FileSystemEventHandler):
     def on_created(self, event):
@@ -69,21 +112,6 @@ class VideoHandler(FileSystemEventHandler):
 
 observer = Observer()
 event_handler = VideoHandler()
-
-def get_video_length(video_path):
-    video = cv2.VideoCapture(video_path)
-    fps = video.get(cv2.CAP_PROP_FPS)
-    total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    video.release()
-    
-    if fps <= 0 or total_frames <= 0:
-        return "Unknown"
-    
-    duration_seconds = total_frames / fps
-    hours, remainder = divmod(duration_seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    
-    return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
 
 @app.route('/')
 def index():
@@ -108,28 +136,27 @@ def get_videos_and_thumbnails():
     for video in os.listdir(app.config['UPLOAD_FOLDER']):
         if allowed_file(video):
             video_path = os.path.join(app.config['UPLOAD_FOLDER'], video)
-            thumbnail_folder = os.path.join(thumbs_folder, os.path.splitext(video)[0])
-            thumbnails = [f for f in os.listdir(thumbnail_folder) if f.endswith('.jpg')] if os.path.exists(thumbnail_folder) else []
-            videos.append({
-                "name": video,
-                "thumbnails": thumbnails,
-                "length": get_video_length(video_path)
-            })
+            if not should_remove_video(video_path):
+                thumbnail_folder = os.path.join(thumbs_folder, os.path.splitext(video)[0])
+                thumbnails = [f for f in os.listdir(thumbnail_folder) if f.endswith('.jpg')] if os.path.exists(thumbnail_folder) else []
+                duration = get_video_length(video_path)
+                if duration:
+                    hours, remainder = divmod(duration, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    length = f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
+                else:
+                    length = "Unknown"
+                videos.append({
+                    "name": video,
+                    "thumbnails": thumbnails,
+                    "length": length
+                })
     return jsonify(videos)
 
 @app.route('/remove_video/<video>')
 def remove_video(video):
     video_path = os.path.join(app.config['UPLOAD_FOLDER'], video)
-    thumbnail_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'thumbs', os.path.splitext(video)[0])
-    
-    if os.path.exists(video_path):
-        os.remove(video_path)
-    
-    if os.path.exists(thumbnail_folder):
-        for thumbnail in os.listdir(thumbnail_folder):
-            os.remove(os.path.join(thumbnail_folder, thumbnail))
-        os.rmdir(thumbnail_folder)
-    
+    remove_video_and_thumbnails(video_path)
     return jsonify({"status": "success", "message": f"Removed video and thumbnails: {video}"})
 
 @app.route('/uploads/<path:filename>')
