@@ -32,6 +32,15 @@
             height: 45px;
             object-fit: cover;
         }
+        .loading {
+            display: inline-block;
+            width: 80px;
+            height: 45px;
+            background-color: #f0f0f0;
+            text-align: center;
+            line-height: 45px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -39,6 +48,7 @@
     <form id="folderForm">
         <label for="folder">Set monitoring folder:</label>
         <input type="text" id="folder" name="folder" required>
+        <button type="button" onclick="openFolderBrowser()">Browse</button>
         <button type="submit">Set Folder</button>
     </form>
     <div id="message"></div>
@@ -49,6 +59,17 @@
         const folderForm = document.getElementById('folderForm');
         const message = document.getElementById('message');
         const videoGallery = document.getElementById('videoGallery');
+
+        function openFolderBrowser() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.webkitdirectory = true;
+            input.addEventListener('change', (event) => {
+                const folder = event.target.files[0].path;
+                document.getElementById('folder').value = folder;
+            });
+            input.click();
+        }
 
         folderForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -77,13 +98,17 @@
                 videoGallery.appendChild(videoItem);
 
                 const thumbnailGallery = videoItem.querySelector('.thumbnail-gallery');
-                video.thumbnails.forEach(thumbnail => {
-                    const img = document.createElement('img');
-                    img.src = `/thumbnails/${video.name}/${thumbnail}`;
-                    img.alt = thumbnail;
-                    img.className = 'thumbnail';
-                    thumbnailGallery.appendChild(img);
-                });
+                if (video.thumbnails.length === 0) {
+                    thumbnailGallery.innerHTML = '<div class="loading">Generating...</div>';
+                } else {
+                    video.thumbnails.forEach(thumbnail => {
+                        const img = document.createElement('img');
+                        img.src = `/thumbnails/${video.name}/${thumbnail}`;
+                        img.alt = thumbnail;
+                        img.className = 'thumbnail';
+                        thumbnailGallery.appendChild(img);
+                    });
+                }
             });
         }
 
@@ -95,6 +120,9 @@
         }
 
         loadVideosAndThumbnails();
+
+        // Periodically check for new thumbnails
+        setInterval(loadVideosAndThumbnails, 5000);
     </script>
 </body>
 </html>
