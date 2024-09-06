@@ -39,7 +39,7 @@ sudo systemctl start video_thumbnail_service
 
 ## Usage
 
-1. Access the web interface by opening a web browser and navigating to `http://your-server-ip:5000`.
+1. Access the web interface by opening a web browser and navigating to `http://your-server-ip:5050`.
 
 2. Set the monitoring folder using the input field at the top of the page.
 
