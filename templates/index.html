@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -19,16 +19,17 @@
         .video-item {
             border: 1px solid #ccc;
             padding: 10px;
-            width: 200px;
+            width: 300px;
         }
         .thumbnail-gallery {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
+            margin-top: 10px;
         }
         .thumbnail {
-            width: 100px;
-            height: 100px;
+            width: 80px;
+            height: 45px;
             object-fit: cover;
         }
     </style>
@@ -58,37 +59,31 @@
             });
             const result = await response.json();
             message.textContent = result.message;
-            loadVideos();
+            loadVideosAndThumbnails();
         });
 
-        async function loadVideos() {
-            const response = await fetch('/get_videos');
+        async function loadVideosAndThumbnails() {
+            const response = await fetch('/get_videos_and_thumbnails');
             const videos = await response.json();
             videoGallery.innerHTML = '';
             videos.forEach(video => {
                 const videoItem = document.createElement('div');
                 videoItem.className = 'video-item';
                 videoItem.innerHTML = `
-                    <h3>${video}</h3>
-                    <button onclick="loadThumbnails('${video}')">Show Thumbnails</button>
-                    <button onclick="removeVideo('${video}')">Remove Video</button>
-                    <div class="thumbnail-gallery" id="thumbnails-${video}"></div>
+                    <h3>${video.name}</h3>
+                    <button onclick="removeVideo('${video.name}')">Remove Video</button>
+                    <div class="thumbnail-gallery" id="thumbnails-${video.name}"></div>
                 `;
                 videoGallery.appendChild(videoItem);
-            });
-        }
 
-        async function loadThumbnails(video) {
-            const response = await fetch(`/get_thumbnails/${video}`);
-            const thumbnails = await response.json();
-            const thumbnailGallery = document.getElementById(`thumbnails-${video}`);
-            thumbnailGallery.innerHTML = '';
-            thumbnails.forEach(thumbnail => {
-                const img = document.createElement('img');
-                img.src = `/thumbnails/${video}/${thumbnail}`;
-                img.alt = thumbnail;
-                img.className = 'thumbnail';
-                thumbnailGallery.appendChild(img);
+                const thumbnailGallery = videoItem.querySelector('.thumbnail-gallery');
+                video.thumbnails.forEach(thumbnail => {
+                    const img = document.createElement('img');
+                    img.src = `/thumbnails/${video.name}/${thumbnail}`;
+                    img.alt = thumbnail;
+                    img.className = 'thumbnail';
+                    thumbnailGallery.appendChild(img);
+                });
             });
         }
 
@@ -96,10 +91,10 @@
             const response = await fetch(`/remove_video/${video}`);
             const result = await response.json();
             message.textContent = result.message;
-            loadVideos();
+            loadVideosAndThumbnails();
         }
 
-        loadVideos();
+        loadVideosAndThumbnails();
     </script>
 </body>
 </html>

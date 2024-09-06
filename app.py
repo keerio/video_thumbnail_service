@@ -36,6 +36,15 @@ def create_thumbnails(video_path, output_folder):
 
     video.release()
 
+def process_existing_videos(folder):
+    for video in os.listdir(folder):
+        if allowed_file(video):
+            video_path = os.path.join(folder, video)
+            thumbnail_folder = os.path.join(app.config['THUMBNAIL_FOLDER'], video)
+            if not os.path.exists(thumbnail_folder):
+                os.makedirs(thumbnail_folder, exist_ok=True)
+                create_thumbnails(video_path, thumbnail_folder)
+
 class VideoHandler(FileSystemEventHandler):
     def on_created(self, event):
         if not event.is_directory and allowed_file(event.src_path):
@@ -60,18 +69,21 @@ def set_folder():
     os.makedirs(folder, exist_ok=True)
     observer.unschedule_all()
     observer.schedule(event_handler, folder, recursive=False)
+    process_existing_videos(folder)
     return jsonify({"status": "success", "message": f"Monitoring folder: {folder}"})
 
-@app.route('/get_videos')
-def get_videos():
-    videos = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if allowed_file(f)]
+@app.route('/get_videos_and_thumbnails')
+def get_videos_and_thumbnails():
+    videos = []
+    for video in os.listdir(app.config['UPLOAD_FOLDER']):
+        if allowed_file(video):
+            thumbnail_folder = os.path.join(app.config['THUMBNAIL_FOLDER'], video)
+            thumbnails = [f for f in os.listdir(thumbnail_folder) if f.endswith('.jpg')]
+            videos.append({
+                "name": video,
+                "thumbnails": thumbnails
+            })
     return jsonify(videos)
-
-@app.route('/get_thumbnails/<video>')
-def get_thumbnails(video):
-    thumbnail_folder = os.path.join(app.config['THUMBNAIL_FOLDER'], video)
-    thumbnails = [f for f in os.listdir(thumbnail_folder) if f.endswith('.jpg')]
-    return jsonify(thumbnails)
 
 @app.route('/remove_video/<video>')
 def remove_video(video):
