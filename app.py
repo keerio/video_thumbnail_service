@@ -70,6 +70,21 @@ class VideoHandler(FileSystemEventHandler):
 observer = Observer()
 event_handler = VideoHandler()
 
+def get_video_length(video_path):
+    video = cv2.VideoCapture(video_path)
+    fps = video.get(cv2.CAP_PROP_FPS)
+    total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    video.release()
+    
+    if fps <= 0 or total_frames <= 0:
+        return "Unknown"
+    
+    duration_seconds = total_frames / fps
+    hours, remainder = divmod(duration_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -92,11 +107,13 @@ def get_videos_and_thumbnails():
     thumbs_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'thumbs')
     for video in os.listdir(app.config['UPLOAD_FOLDER']):
         if allowed_file(video):
+            video_path = os.path.join(app.config['UPLOAD_FOLDER'], video)
             thumbnail_folder = os.path.join(thumbs_folder, os.path.splitext(video)[0])
             thumbnails = [f for f in os.listdir(thumbnail_folder) if f.endswith('.jpg')] if os.path.exists(thumbnail_folder) else []
             videos.append({
                 "name": video,
-                "thumbnails": thumbnails
+                "thumbnails": thumbnails,
+                "length": get_video_length(video_path)
             })
     return jsonify(videos)
 

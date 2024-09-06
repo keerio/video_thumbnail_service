@@ -13,13 +13,20 @@
         }
         .video-gallery {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 20px;
         }
         .video-item {
             border: 1px solid #ccc;
             padding: 10px;
-            width: 300px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .video-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
         }
         .thumbnail-gallery {
             display: flex;
@@ -132,7 +139,10 @@
                     videoItem.id = `video-${video.name}`;
                     videoItem.className = 'video-item';
                     videoItem.innerHTML = `
-                        <h3>${video.name}</h3>
+                        <div class="video-info">
+                            <h3>${video.name}</h3>
+                            <span class="video-length">${video.length || 'Unknown'}</span>
+                        </div>
                         <button onclick="removeVideo('${video.name}')">Remove Video</button>
                         <div class="thumbnail-gallery" id="thumbnails-${video.name}"></div>
                     `;
