@@ -24,15 +24,23 @@ def create_thumbnails(video_path, output_folder):
     video = cv2.VideoCapture(video_path)
     fps = video.get(cv2.CAP_PROP_FPS)
     total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    duration = total_frames / fps
+    
+    if fps <= 0 or total_frames <= 0:
+        print(f"Error: Invalid video file: {video_path}")
+        video.release()
+        return
 
+    duration = total_frames / fps
     interval = 120  # 2 minutes
+
     for i in range(0, int(duration), interval):
         video.set(cv2.CAP_PROP_POS_MSEC, i * 1000)
         success, image = video.read()
         if success:
             thumbnail_path = os.path.join(output_folder, f"thumbnail_{i}.jpg")
             cv2.imwrite(thumbnail_path, image)
+        else:
+            print(f"Error: Failed to read frame at {i} seconds for {video_path}")
 
     video.release()
 
@@ -43,7 +51,10 @@ def process_existing_videos(folder):
             thumbnail_folder = os.path.join(app.config['THUMBNAIL_FOLDER'], video)
             if not os.path.exists(thumbnail_folder):
                 os.makedirs(thumbnail_folder, exist_ok=True)
-                create_thumbnails(video_path, thumbnail_folder)
+                try:
+                    create_thumbnails(video_path, thumbnail_folder)
+                except Exception as e:
+                    print(f"Error processing video {video}: {str(e)}")
 
 class VideoHandler(FileSystemEventHandler):
     def on_created(self, event):
@@ -51,7 +62,10 @@ class VideoHandler(FileSystemEventHandler):
             video_name = os.path.basename(event.src_path)
             thumbnail_folder = os.path.join(app.config['THUMBNAIL_FOLDER'], video_name)
             os.makedirs(thumbnail_folder, exist_ok=True)
-            create_thumbnails(event.src_path, thumbnail_folder)
+            try:
+                create_thumbnails(event.src_path, thumbnail_folder)
+            except Exception as e:
+                print(f"Error processing new video {video_name}: {str(e)}")
 
 observer = Observer()
 event_handler = VideoHandler()
