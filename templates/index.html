@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Thumbnail Service</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .video-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .video-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 200px;
+        }
+        .thumbnail-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .thumbnail {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Thumbnail Service</h1>
+    <form id="folderForm">
+        <label for="folder">Set monitoring folder:</label>
+        <input type="text" id="folder" name="folder" required>
+        <button type="submit">Set Folder</button>
+    </form>
+    <div id="message"></div>
+    <h2>Videos</h2>
+    <div id="videoGallery" class="video-gallery"></div>
+
+    <script>
+        const folderForm = document.getElementById('folderForm');
+        const message = document.getElementById('message');
+        const videoGallery = document.getElementById('videoGallery');
+
+        folderForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(folderForm);
+            const response = await fetch('/set_folder', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            message.textContent = result.message;
+            loadVideos();
+        });
+
+        async function loadVideos() {
+            const response = await fetch('/get_videos');
+            const videos = await response.json();
+            videoGallery.innerHTML = '';
+            videos.forEach(video => {
+                const videoItem = document.createElement('div');
+                videoItem.className = 'video-item';
+                videoItem.innerHTML = `
+                    <h3>${video}</h3>
+                    <button onclick="loadThumbnails('${video}')">Show Thumbnails</button>
+                    <button onclick="removeVideo('${video}')">Remove Video</button>
+                    <div class="thumbnail-gallery" id="thumbnails-${video}"></div>
+                `;
+                videoGallery.appendChild(videoItem);
+            });
+        }
+
+        async function loadThumbnails(video) {
+            const response = await fetch(`/get_thumbnails/${video}`);
+            const thumbnails = await response.json();
+            const thumbnailGallery = document.getElementById(`thumbnails-${video}`);
+            thumbnailGallery.innerHTML = '';
+            thumbnails.forEach(thumbnail => {
+                const img = document.createElement('img');
+                img.src = `/thumbnails/${video}/${thumbnail}`;
+                img.alt = thumbnail;
+                img.className = 'thumbnail';
+                thumbnailGallery.appendChild(img);
+            });
+        }
+
+        async function removeVideo(video) {
+            const response = await fetch(`/remove_video/${video}`);
+            const result = await response.json();
+            message.textContent = result.message;
+            loadVideos();
+        }
+
+        loadVideos();
+    </script>
+</body>
+</html>

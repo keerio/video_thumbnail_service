@@ -1,0 +1,12 @@
+[Unit]
+Description=Video Thumbnail Service
+After=network.target
+
+[Service]
+User=www-data
+WorkingDirectory=/opt/video_thumbnail_service
+ExecStart=/usr/bin/python3 /opt/video_thumbnail_service/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
