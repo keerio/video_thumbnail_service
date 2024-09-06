@@ -12,6 +12,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'mp4', 'ts'}
 TIMEOUT = 30  # 30 seconds timeout for video processing
+MAX_RETRIES = 3  # Maximum number of retries for processing a video
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -105,14 +106,23 @@ def process_video(video_path, thumbnail_folder):
             create_thumbnails(video_path, thumbnail_folder)
     except Exception as e:
         logging.error(f"Error processing video {video_path}: {str(e)}")
+        raise  # Re-raise the exception to be caught by the retry mechanism
 
 def process_video_with_timeout(video_path, thumbnail_folder):
-    thread = threading.Thread(target=process_video, args=(video_path, thumbnail_folder))
-    thread.start()
-    thread.join(timeout=TIMEOUT)
-    if thread.is_alive():
-        logging.warning(f"Video processing timed out for {video_path}")
-        # You might want to do something here, like marking the video for removal
+    for attempt in range(MAX_RETRIES):
+        thread = threading.Thread(target=process_video, args=(video_path, thumbnail_folder))
+        thread.start()
+        thread.join(timeout=TIMEOUT)
+        if thread.is_alive():
+            logging.warning(f"Video processing timed out for {video_path} (Attempt {attempt + 1}/{MAX_RETRIES})")
+            if attempt == MAX_RETRIES - 1:
+                logging.error(f"Max retries reached for {video_path}. Marking for removal.")
+                remove_video_and_thumbnails(video_path)
+        else:
+            # Processing completed successfully
+            return
+    
+    logging.error(f"Failed to process video {video_path} after {MAX_RETRIES} attempts")
 
 def process_existing_videos(folder):
     thumbs_folder = os.path.join(folder, 'thumbs')
